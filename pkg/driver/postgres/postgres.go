@@ -20,15 +20,17 @@ func init() {
 
 // Driver provides top level database functions
 type Driver struct {
-	migrationsTableName string
-	databaseURL         *url.URL
+	migrationsTableName       string
+	databaseURL               *url.URL
+	includeMigrationsWithDump bool
 }
 
 // NewDriver initializes the driver
 func NewDriver(config dbmate.DriverConfig) dbmate.Driver {
 	return &Driver{
-		migrationsTableName: config.MigrationsTableName,
-		databaseURL:         config.DatabaseURL,
+		migrationsTableName:       config.MigrationsTableName,
+		databaseURL:               config.DatabaseURL,
+		includeMigrationsWithDump: config.IncludeMigrationsWithDump,
 	}
 }
 
@@ -177,6 +179,10 @@ func (drv *Driver) DumpSchema(db *sql.DB) ([]byte, error) {
 	schema, err := dbutil.RunCommand("pg_dump", args...)
 	if err != nil {
 		return nil, err
+	}
+
+	if !drv.includeMigrationsWithDump {
+		return dbutil.TrimLeadingSQLComments(schema)
 	}
 
 	migrations, err := drv.schemaMigrationsDump(db)

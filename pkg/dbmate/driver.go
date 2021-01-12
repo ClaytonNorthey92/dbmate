@@ -23,8 +23,9 @@ type Driver interface {
 
 // DriverConfig holds configuration passed to driver constructors
 type DriverConfig struct {
-	DatabaseURL         *url.URL
-	MigrationsTableName string
+	DatabaseURL               *url.URL
+	MigrationsTableName       string
+	IncludeMigrationsWithDump bool
 }
 
 // DriverFunc represents a driver constructor

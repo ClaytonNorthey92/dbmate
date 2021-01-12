@@ -195,7 +195,17 @@ func NewApp() *cli.App {
 		{
 			Name:  "dump",
 			Usage: "Write the database schema to disk",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:    "create-migrations-table",
+					Aliases: []string{"c"},
+					EnvVars: []string{"DBMATE_CREATE_MIGRATIONS_TABLE"},
+					Usage:   "create the migrations table when dumping, defaults to true",
+					Value:   true,
+				},
+			},
 			Action: action(func(db *dbmate.DB, c *cli.Context) error {
+				db.CreateMigrationsTable = c.Bool("create-migrations-table")
 				return db.DumpSchema()
 			}),
 		},

@@ -32,15 +32,16 @@ const DefaultWaitTimeout = 60 * time.Second
 
 // DB allows dbmate actions to be performed on a specified database
 type DB struct {
-	AutoDumpSchema      bool
-	DatabaseURL         *url.URL
-	MigrationsDir       string
-	MigrationsTableName string
-	SchemaFile          string
-	Verbose             bool
-	WaitBefore          bool
-	WaitInterval        time.Duration
-	WaitTimeout         time.Duration
+	AutoDumpSchema        bool
+	DatabaseURL           *url.URL
+	MigrationsDir         string
+	MigrationsTableName   string
+	SchemaFile            string
+	Verbose               bool
+	WaitBefore            bool
+	WaitInterval          time.Duration
+	WaitTimeout           time.Duration
+	CreateMigrationsTable bool
 }
 
 // migrationFileRegexp pattern for valid migration files
@@ -55,14 +56,15 @@ type StatusResult struct {
 // New initializes a new dbmate database
 func New(databaseURL *url.URL) *DB {
 	return &DB{
-		AutoDumpSchema:      true,
-		DatabaseURL:         databaseURL,
-		MigrationsDir:       DefaultMigrationsDir,
-		MigrationsTableName: DefaultMigrationsTableName,
-		SchemaFile:          DefaultSchemaFile,
-		WaitBefore:          false,
-		WaitInterval:        DefaultWaitInterval,
-		WaitTimeout:         DefaultWaitTimeout,
+		AutoDumpSchema:        true,
+		DatabaseURL:           databaseURL,
+		MigrationsDir:         DefaultMigrationsDir,
+		MigrationsTableName:   DefaultMigrationsTableName,
+		SchemaFile:            DefaultSchemaFile,
+		WaitBefore:            false,
+		WaitInterval:          DefaultWaitInterval,
+		WaitTimeout:           DefaultWaitTimeout,
+		CreateMigrationsTable: true,
 	}
 }
 
@@ -78,8 +80,9 @@ func (db *DB) GetDriver() (Driver, error) {
 	}
 
 	config := DriverConfig{
-		DatabaseURL:         db.DatabaseURL,
-		MigrationsTableName: db.MigrationsTableName,
+		DatabaseURL:               db.DatabaseURL,
+		MigrationsTableName:       db.MigrationsTableName,
+		IncludeMigrationsWithDump: db.CreateMigrationsTable,
 	}
 
 	return driverFunc(config), nil
@@ -290,6 +293,10 @@ func (db *DB) openDatabaseForMigration(drv Driver) (*sql.DB, error) {
 	sqlDB, err := drv.Open()
 	if err != nil {
 		return nil, err
+	}
+
+	if db.CreateMigrationsTable == false {
+		return sqlDB, nil
 	}
 
 	if err := drv.CreateMigrationsTable(sqlDB); err != nil {

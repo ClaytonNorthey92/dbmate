@@ -134,6 +134,66 @@ func TestDumpSchema(t *testing.T) {
 	require.Contains(t, string(schema), "-- PostgreSQL database dump")
 }
 
+func TestCreateMigrationsTable(t *testing.T) {
+	type CreateMigrationsTableTest struct {
+		Name              string
+		ShouldCreateTable bool
+		Setup             func(*dbmate.DB)
+	}
+
+	createMigrationsTestTable := []CreateMigrationsTableTest{
+		CreateMigrationsTableTest{
+			Name:              "should create migrations table",
+			ShouldCreateTable: true,
+			Setup: func(db *dbmate.DB) {
+				db.CreateMigrationsTable = true
+			},
+		},
+		CreateMigrationsTableTest{
+			Name:              "should no create migrations table if CreateMigrationsTable is false",
+			ShouldCreateTable: false,
+			Setup: func(db *dbmate.DB) {
+				db.CreateMigrationsTable = false
+			},
+		},
+	}
+
+	u := dbutil.MustParseURL(os.Getenv("POSTGRES_TEST_URL"))
+	for _, testCase := range createMigrationsTestTable {
+		t.Run(testCase.Name, func(t *testing.T) {
+			db := newTestDB(t, u)
+			testCase.Setup(db)
+
+			err := db.Drop()
+			require.NoError(t, err)
+
+			err = db.Create()
+			require.NoError(t, err)
+
+			drv, err := db.GetDriver()
+			require.NoError(t, err)
+
+			sqlDB, err := drv.Open()
+			require.NoError(t, err)
+			defer dbutil.MustClose(sqlDB)
+
+			err = db.DumpSchema()
+			require.NoError(t, err)
+
+			var exists bool
+			err = sqlDB.QueryRow(`
+				SELECT EXISTS(
+					SELECT * FROM information_schema.tables
+					WHERE table_schema = 'public'
+					AND table_name = $1
+				)`, db.MigrationsTableName).Scan(&exists)
+			require.NoError(t, err)
+
+			require.Equal(t, testCase.ShouldCreateTable, exists)
+		})
+	}
+}
+
 func TestAutoDumpSchema(t *testing.T) {
 	u := dbutil.MustParseURL(os.Getenv("POSTGRES_TEST_URL"))
 	db := newTestDB(t, u)
